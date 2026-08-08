@@ -1,0 +1,28 @@
+# Python temporary files & environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Secrets & environment variables
+.env
+.env.*
+*.pem
+
+# Heavy local vector stores, checkpoints & caches
+indices_output/
+chroma/
+.chroma/
+rag_checkpoint/
+*.json
+!shared/
+!ingestion/
+!serving/
+!evaluation/
+
+# OS metadata
+.DS_Store
+Thumbs.db

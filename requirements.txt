@@ -1,0 +1,13 @@
+pymupdf
+paddleocr
+paddlepaddle
+chromadb
+sentence-transformers
+huggingface_hub
+pydantic
+groq
+gradio
+ragas
+datasets
+numpy
+pillow
