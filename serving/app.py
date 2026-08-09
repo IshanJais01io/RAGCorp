@@ -1,58 +1,38 @@
 import os
+import sys
 import gradio as gr
-from sentence_transformers import SentenceTransformer
-from shared.config import TEXT_EMBED_MODEL, CHROMA_PERSIST_DIR
-from serving.router import QueryIntentRouter
-from serving.retriever import DualRetriever
-from serving.reranker import FusionReranker
-from serving.generator import GroqGenerator
-from serving.groundedness import GroundednessVerifier
 
-# Initialize Pipeline Engine
-text_encoder = SentenceTransformer(TEXT_EMBED_MODEL)
-router = QueryIntentRouter(text_encoder)
-reranker = FusionReranker()
-generator = GroqGenerator()
-verifier = GroundednessVerifier()
+RAGCORP_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if RAGCORP_PATH not in sys.path:
+    sys.path.insert(0, RAGCORP_PATH)
 
-# Lazy-loaded retriever
-retriever = None
+from serving.generation import generate_answer, retrieve_context
 
-def get_retriever():
-    global retriever
-    if retriever is None and os.path.exists(CHROMA_PERSIST_DIR):
-        retriever = DualRetriever(CHROMA_PERSIST_DIR, text_encoder)
-    return retriever
+def respond(user_query, history):
+    if not user_query.strip():
+        return history, ""
 
-def chat_pipeline(message, history):
-    active_retriever = get_retriever()
-    if not active_retriever:
-        return "Vector index not found. Please run Phase 1 Ingestion first."
+    retrieved_chunks = retrieve_context(user_query, top_k=4)
+    if not retrieved_chunks:
+        bot_response = "The requested information is not found in the indexed documents."
+        history.append((user_query, bot_response))
+        return history, ""
 
-    # 1. Intent Routing
-    route = router.route(message)
-    
-    # 2. Retrieval
-    candidates = active_retriever.search_text(message, top_k=10)
-    
-    # 3. Reranking
-    ranked_chunks = reranker.rerank(message, candidates, top_k=5)
-    
-    # 4. Generation via Groq
-    raw_answer = generator.generate_answer(message, ranked_chunks)
-    
-    # 5. Groundedness Verification
-    verification = verifier.verify(raw_answer, ranked_chunks)
-    
-    return verification["answer"]
+    answer, sources = generate_answer(user_query, retrieved_chunks)
+    history.append((user_query, answer))
+    return history, ""
 
-# Gradio Interface Setup
-demo = gr.ChatInterface(
-    fn=chat_pipeline,
-    title="RAGCorp — Enterprise Multi-Modal RAG Engine",
-    description="Ask questions about your PDF documents. Answers include verified inline citations.",
-    examples=["What was the Q3 revenue mentioned in the report?", "Summarize the key findings from the scanned document."]
-)
+with gr.Blocks(title="RAGCorp — Enterprise Multi-Modal RAG Engine") as demo:
+    gr.Markdown("# RAGCorp — Enterprise Multi-Modal RAG Engine")
+    chatbot = gr.Chatbot(elem_id="chatbot", label="RAGCorp Assistant")
+    msg = gr.Textbox(placeholder="Ask a question about your indexed PDF documents...", container=False)
+    with gr.Row():
+        submit_btn = gr.Button("Submit", variant="primary")
+        clear_btn = gr.Button("Clear Chat")
+
+    msg.submit(respond, [msg, chatbot], [chatbot, msg])
+    submit_btn.click(respond, [msg, chatbot], [chatbot, msg])
+    clear_btn.click(lambda: None, None, chatbot, queue=False)
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(share=True, debug=True)
