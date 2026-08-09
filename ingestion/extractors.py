@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import pymupdf as fitz  # Replaced 'import fitz' to fix deprecation warning
 from paddleocr import PaddleOCR
 import numpy as np
 from PIL import Image
@@ -7,7 +7,8 @@ from typing import Tuple
 
 class MultiModalExtractor:
     def __init__(self, use_gpu: bool = True):
-        self.ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=use_gpu, show_log=False)
+        # Removed show_log parameter for compatibility with latest PaddleOCR
+        self.ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=use_gpu)
 
     def process_pdf_page(self, page: fitz.Page, page_num: int, min_text_chars: int = 50) -> Tuple[str, str, Image.Image]:
         native_text = page.get_text("text").strip()
