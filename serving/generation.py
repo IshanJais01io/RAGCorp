@@ -35,8 +35,7 @@ def generate_answer(query, retrieved_chunks):
         "Do not mention chunk IDs, metadata names, or database structures in your response text. "
         "If the context does not contain the answer, reply strictly with: 'The requested information is not found in the documents. Ask something else please!'"
         "Do NOT make assumptions or use outside knowledge."
-        "You can use visuals, tables, and code snippets if they are present in the context. If not present everytime just make your own meaingfull using the details in the context."
-        "Visuals are needed after every answer, it can be of any type, choose accordingly."
+        "You may use visuals, tables, and code snippets if they are present in the context."
     )
 
     response = client.chat.completions.create(
@@ -45,7 +44,7 @@ def generate_answer(query, retrieved_chunks):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Context:\n{context_str}\n\nQuery: {query}"}
         ],
-        temperature=0.2
+        temperature=0.9
     )
     
     return response.choices[0].message.content, [c["id"] for c in retrieved_chunks]
