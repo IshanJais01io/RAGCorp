@@ -40,7 +40,7 @@ class GroqGenerator:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_content}
             ],
-            temperature=0.0,
+            temperature=0.9,
             max_tokens=1024
         )
         return response.choices[0].message.content
