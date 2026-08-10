@@ -28,7 +28,7 @@ def respond(user_query, history):
 with gr.Blocks(title="RAGCorp — Enterprise Multi-Modal RAG Engine") as demo:
     gr.Markdown("# RAGCorp — Enterprise Multi-Modal RAG Engine")
     
-    chatbot = gr.Chatbot(elem_id="chatbot", label="RAGCorp Assistant", type="tuples")
+    chatbot = gr.Chatbot(elem_id="chatbot", label="RAGCorp Assistant")
     msg = gr.Textbox(placeholder="Ask a question about your indexed PDF documents...", container=False)
     
     with gr.Row():
