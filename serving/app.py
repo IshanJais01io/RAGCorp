@@ -15,23 +15,20 @@ def respond(user_query, history):
     if history is None:
         history = []
 
-    # Format user message as a dictionary
-    history.append({"role": "user", "content": user_query})
-
     retrieved_chunks = retrieve_context(user_query, top_k=4)
     if not retrieved_chunks:
         bot_response = "The requested information is not found in the indexed documents."
-        history.append({"role": "assistant", "content": bot_response})
+        history.append([user_query, bot_response])
         return history, ""
 
     answer, sources = generate_answer(user_query, retrieved_chunks)
-    history.append({"role": "assistant", "content": answer})
+    history.append([user_query, answer])
     return history, ""
 
 with gr.Blocks(title="RAGCorp — Enterprise Multi-Modal RAG Engine") as demo:
     gr.Markdown("# RAGCorp — Enterprise Multi-Modal RAG Engine")
     
-    chatbot = gr.Chatbot(elem_id="chatbot", label="RAGCorp Assistant", type="messages")
+    chatbot = gr.Chatbot(elem_id="chatbot", label="RAGCorp Assistant")
     msg = gr.Textbox(placeholder="Ask a question about your indexed PDF documents...", container=False)
     
     with gr.Row():
