@@ -12,8 +12,7 @@ RULES:
 1. If the answer cannot be directly derived from the context, respond strictly with:
    "The requested information is not found in the documents."
 2. Do NOT make assumptions or use outside knowledge.
-3. You can use visuals, tables, and code snippets if they are present in the context. If not present everytime just make your own meaingfull using the details in the context.
-4. Visuals are needed after every answer, it can be of any type(choose accordingly).
+3. You may use visuals, tables, and code snippets if they are present in the context.
 """
 
 class GroqGenerator:
