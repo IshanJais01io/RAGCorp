@@ -1,7 +1,8 @@
 import os
+import re
 from groq import Groq
 
-def retrieve_context(query, top_k=4):
+def retrieve_context(query, top_k=12):
     import chromadb
     
     possible_paths = [
@@ -23,11 +24,21 @@ def retrieve_context(query, top_k=4):
     try:
         c_client = chromadb.PersistentClient(path=chroma_path)
         coll = c_client.get_collection("document_chunks")
-        results = coll.query(query_texts=[query], n_results=top_k)
-        chunks = []
-        if results and results.get("documents") and results["documents"][0]:
-            for doc, meta, cid in zip(results["documents"][0], results["metadatas"][0], results["ids"][0]):
-                chunks.append({"id": cid, "text": doc, "metadata": meta})
+        
+        keywords = re.findall(r'\w+', query.lower())
+        search_terms = [query]
+        if "security" in keywords or "bugs" in keywords or "report" in keywords:
+            search_terms.append(f"{query} code review vulnerability testing report summary")
+
+        chunks_dict = {}
+        for st in search_terms:
+            results = coll.query(query_texts=[st], n_results=top_k)
+            if results and results.get("documents") and results["documents"][0]:
+                for doc, meta, cid in zip(results["documents"][0], results["metadatas"][0], results["ids"][0]):
+                    if cid not in chunks_dict:
+                        chunks_dict[cid] = {"id": cid, "text": doc, "metadata": meta}
+                        
+        chunks = list(chunks_dict.values())[:top_k]
         return chunks
     except Exception as e:
         print(f"Retrieval error: {e}")
@@ -46,11 +57,12 @@ def generate_answer(query, retrieved_chunks):
         context_str = "\n\n".join([f"[{c['id']}] {c['text']}" for c in retrieved_chunks])
         
         system_prompt = (
-            "You are an expert enterprise analytical assistant. "
+            "You are an expert enterprise analytical assistant for RAGCorp. "
             "Answer the user query strictly using the provided document context. "
             "Every factual claim must end with an inline citation using the format [Chunk chunk_id]. "
-            "Do not mention chunk IDs, metadata, or database structures in your conversational text. "
-            "If the context does not contain the answer, reply strictly with: 'The requested information is not found in the indexed documents.'"
+            "If the user asks for a count, summary, or specific details, thoroughly review all provided context chunks. "
+            "Do not mention internal database mechanics in your conversational text. "
+            "If the context truly does not contain the answer, reply strictly with: 'The requested information is not found in the indexed documents.'"
         )
 
         response = client.chat.completions.create(
@@ -59,7 +71,7 @@ def generate_answer(query, retrieved_chunks):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Context:\n{context_str}\n\nQuery: {query}"}
             ],
-            temperature=0.2
+            temperature=0.1
         )
         
         return response.choices[0].message.content, [c["id"] for c in retrieved_chunks]
