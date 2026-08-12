@@ -4,14 +4,12 @@ import json
 import re
 from groq import Groq
 
-# Ensure serving path import
 RAGCORP_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if RAGCORP_PATH not in sys.path:
     sys.path.insert(0, RAGCORP_PATH)
 
 from serving.generation import retrieve_context, generate_answer
 
-# Evaluator LLM Prompt for Benchmarking
 EVAL_SYSTEM_PROMPT = """You are an expert RAG Benchmarking Judge. Evaluate the given (Query, Context, Answer) triplet.
 Provide 3 numerical scores between 0.0 and 1.0:
 1. "faithfulness": Is the answer strictly derived from context without hallucination? (1.0 = Fully grounded, 0.0 = Pure hallucination)
@@ -24,10 +22,10 @@ OUTPUT FORMAT: Return strictly valid JSON with no markdown wrapping:
 
 BENCHMARK_TEST_SET = [
     "About STRING AND PERCUSSION INSTRUMENTS",
-    "summary mentioned in python-for-cybersecurity",
-    "testing report of python-for-cybersecurity",
-    "bugs in Chatbot-using-Python",
-    "Documentation report of Chatbot-using-Python"
+    "Why do most people work for money according to Rich Dad Poor Dad?",
+    "Why teach financial literacy according to Rich Dad Poor Dad?",
+    "What is the main concept of feedback loop from hell in The Subtle Art?",
+    "How do simple mechanical tools or levers work in The Way Things Work Now?"
 ]
 
 def run_evaluation():
@@ -50,13 +48,11 @@ def run_evaluation():
     for idx, query in enumerate(BENCHMARK_TEST_SET, 1):
         print(f"[{idx}/{len(BENCHMARK_TEST_SET)}] Evaluating Query: '{query}'")
         
-        # Retrieve Context & Generate Answer
         chunks = retrieve_context(query, top_k=12)
         answer, _ = generate_answer(query, chunks)
         
         context_str = "\n\n".join([c.get("text", "") for c in chunks]) if chunks else "No context retrieved."
 
-        # Evaluate via Llama-3.3-70b Judge
         try:
             eval_response = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
@@ -68,7 +64,6 @@ def run_evaluation():
             )
             
             raw_eval = eval_response.choices[0].message.content.strip()
-            # Clean JSON formatting if wrapped in block
             clean_eval = re.sub(r'```json\s*|```', '', raw_eval).strip()
             eval_data = json.loads(clean_eval)
             
@@ -108,7 +103,6 @@ def run_evaluation():
     print(f"• Overall System Score:        {overall_score * 100:.1f}%")
     print("==================================================\n")
 
-    # Output JSON Benchmark Log
     summary_path = "/content/RAGCorp/evaluation/benchmark_results.json"
     with open(summary_path, "w") as f:
         json.dump({
@@ -119,7 +113,7 @@ def run_evaluation():
             "detailed_results": results
         }, f, indent=2)
     
-    print(f"✅ Saved benchmark report to {summary_path}")
+    print(f"✅ Saved updated benchmark report to {summary_path}")
 
 if __name__ == "__main__":
     run_evaluation()
