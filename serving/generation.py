@@ -2,7 +2,7 @@ import os
 import re
 from groq import Groq
 
-def retrieve_context(query, top_k=12):
+def retrieve_context(query, top_k=6):
     import chromadb
     
     possible_paths = [
@@ -25,19 +25,13 @@ def retrieve_context(query, top_k=12):
         c_client = chromadb.PersistentClient(path=chroma_path)
         coll = c_client.get_collection("document_chunks")
         
-        keywords = re.findall(r'\w+', query.lower())
-        search_terms = [query]
-        if any(k in keywords for k in ["image", "images", "picture", "photo", "diagram", "chart", "figure", "visual"]):
-            search_terms.append(f"{query} image picture diagram chart figure visual photo illustration page")
-
+        results = coll.query(query_texts=[query], n_results=top_k)
         chunks_dict = {}
-        for st in search_terms:
-            results = coll.query(query_texts=[st], n_results=top_k)
-            if results and results.get("documents") and results["documents"][0]:
-                for doc, meta, cid in zip(results["documents"][0], results["metadatas"][0], results["ids"][0]):
-                    if cid not in chunks_dict:
-                        chunks_dict[cid] = {"id": cid, "text": doc, "metadata": meta or {}}
-                        
+        if results and results.get("documents") and results["documents"][0]:
+            for doc, meta, cid in zip(results["documents"][0], results["metadatas"][0], results["ids"][0]):
+                if cid not in chunks_dict:
+                    chunks_dict[cid] = {"id": cid, "text": doc, "metadata": meta or {}}
+                    
         return list(chunks_dict.values())[:top_k]
     except Exception as e:
         print(f"Retrieval error: {e}")
@@ -61,7 +55,6 @@ def generate_answer(query, retrieved_chunks):
             meta = c.get("metadata", {})
             context_blocks.append(f"{c['text']}")
             
-            # Extract Image Path Metadata
             img_path = meta.get("image_path") or meta.get("fig_path") or meta.get("image") or meta.get("img_path")
             if img_path and os.path.exists(str(img_path)):
                 caption = meta.get("caption") or meta.get("image_caption") or f"Visual Document Asset"
@@ -77,7 +70,7 @@ def generate_answer(query, retrieved_chunks):
             "1. **NEVER SHOW CHUNK DETAILS**: Do NOT include chunk IDs, child IDs, metadata tags, or internal database citations (such as [Chunk ...] or [child_...]) anywhere in your response.\n"
             "2. **Conversational & Synthesized**: Synthesize facts across all provided context into a clean, comprehensive, professional Markdown response.\n"
             "3. **Rich Structure**: Use headings (`###`), bold highlights, bullet lists, and markdown tables where relevant.\n"
-            "4. **Strict Grounding**: Base your answer solely on the provided context. If the answer is truly missing, reply strictly: 'The requested information is not found in the indexed documents.'"
+            "4. **Strict Grounding**: Base your answer solely on the provided context. Do NOT extrapolate or add external facts. If the answer is truly missing, reply strictly: 'The requested information is not found in the indexed documents.'"
         )
 
         response = client.chat.completions.create(
@@ -86,18 +79,16 @@ def generate_answer(query, retrieved_chunks):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Document Context:\n{context_str}\n\nUser Query: {query}"}
             ],
-            temperature=0.2
+            temperature=0.0
         )
         
         raw_answer = response.choices[0].message.content
         
-        # Regex Filter to strictly eliminate any leftover chunk tags
         clean_answer = re.sub(r'\[\s*Chunk\s+[^\]]+\\]', '', raw_answer, flags=re.IGNORECASE)
         clean_answer = re.sub(r'\[\s*child_[a-f0-9]+\s*\]', '', clean_answer, flags=re.IGNORECASE)
         clean_answer = re.sub(r'\[\s*Chunk\s*\]', '', clean_answer, flags=re.IGNORECASE)
         clean_answer = re.sub(r'  +', ' ', clean_answer)
 
-        # Append Extracted Visual Assets if present
         if extracted_visuals:
             clean_answer += "\n\n### 📊 Document Images & Visual Assets\n"
             for vis in extracted_visuals:
