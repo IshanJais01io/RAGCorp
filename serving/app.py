@@ -12,7 +12,7 @@ def predict(message, history):
     if not message or not message.strip():
         return ""
 
-    retrieved_chunks = retrieve_context(message, top_k=4)
+    retrieved_chunks = retrieve_context(message, top_k=12)
     if not retrieved_chunks:
         return "The requested information is not found in the indexed documents."
 
@@ -22,9 +22,13 @@ def predict(message, history):
 demo = gr.ChatInterface(
     fn=predict,
     title="RAGCorp — Enterprise Multi-Modal RAG Engine",
-    description="Ask questions about your indexed PDF documents. Answers include verified inline citations.",
+    description="Ask questions about your indexed PDF documents with Gemini-style synthesis.",
     textbox=gr.Textbox(placeholder="Ask a question about your indexed PDF documents...", container=False, scale=7),
 )
 
 if __name__ == "__main__":
-    demo.launch(share=True, debug=True)
+    demo.launch(
+        share=True, 
+        debug=True,
+        allowed_paths=["/content/RAGCorp", "/content/RAGCorp/extracted_images"]
+    )
